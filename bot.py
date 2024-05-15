@@ -1,20 +1,9 @@
 """
-Copyright © Krypton 2019-2023 - https://github.com/kkrypt0nn (https://krypton.ninja)
-Description:
-🐍 A simple template to start to code your own and personalized discord bot in Python programming language.
-
-Version: 6.1.0
+Original Repository (Version: 6.1.0) Copyright © Krypton 2019-2023 - https://github.com/kkrypt0nn (https://krypton.ninja)
 """
 
-import json
-import logging
-import os
-import platform
-import random
-import sys
-
-import aiosqlite
-import discord
+import json, logging, os, platform, random, sys, aiosqlite, discord, csv, re, datetime
+from plexapi.server import PlexServer
 from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from dotenv import load_dotenv
@@ -27,38 +16,6 @@ else:
     with open(f"{os.path.realpath(os.path.dirname(__file__))}/config.json") as file:
         config = json.load(file)
 
-"""	
-Setup bot intents (events restrictions)
-For more information about intents, please go to the following websites:
-https://discordpy.readthedocs.io/en/latest/intents.html
-https://discordpy.readthedocs.io/en/latest/intents.html#privileged-intents
-
-
-Default Intents:
-intents.bans = True
-intents.dm_messages = True
-intents.dm_reactions = True
-intents.dm_typing = True
-intents.emojis = True
-intents.emojis_and_stickers = True
-intents.guild_messages = True
-intents.guild_reactions = True
-intents.guild_scheduled_events = True
-intents.guild_typing = True
-intents.guilds = True
-intents.integrations = True
-intents.invites = True
-intents.messages = True # `message_content` is required to get the content of the messages
-intents.reactions = True
-intents.typing = True
-intents.voice_states = True
-intents.webhooks = True
-
-Privileged Intents (Needs to be enabled on developer portal of Discord), please use them only if you need them:
-intents.members = True
-intents.message_content = True
-intents.presences = True
-"""
 
 intents = discord.Intents.default()
 
@@ -68,11 +25,9 @@ It is recommended to use slash commands and therefore not use prefix commands.
 
 If you want to use prefix commands, make sure to also enable the intent below in the Discord developer portal.
 """
-# intents.message_content = True
+intents.message_content = True
 
 # Setup both of the loggers
-
-
 class LoggingFormatter(logging.Formatter):
     # Colors
     black = "\x1b[30m"
@@ -168,11 +123,98 @@ class DiscordBot(commands.Bot):
                     )
 
     @tasks.loop(minutes=1.0)
+    async def plex_log(self) -> None:
+        """
+        Checks the date of the last Plex log, and makes another one if appropriate.
+        """
+        bigString = ""
+
+        def format_numbers(arr):
+            if not arr: return ""
+            result = []
+            start = arr[0]
+            end = arr[0]
+            for num in arr[1:]:
+                if num == end + 1: end = num
+                else:
+                    if start == end: result.append(f"{start:02d}")
+                    else: result.append(f"{start:02d}-{end:02d}")
+                    start = num
+                    end = num
+            if start == end: result.append(f"{start:02d}")
+            else: result.append(f"{start:02d}-{end:02d}")
+            return ", ".join(result)
+
+        dateFile = open('plexDate.txt', 'r')
+        logDate = datetime.datetime.strptime(dateFile.read(), "%Y-%m-%d")
+        dateFile.close()
+
+        nowDate = datetime.datetime.now().strftime("%Y-%m-%d")
+        dateDiff = datetime.datetime.strptime(nowDate, "%Y-%m-%d") - logDate
+
+
+        if(dateDiff.days >= 7):
+            baseurl = os.getenv("PLEX_URL")
+            token = os.getenv("PLEX_TOKEN")
+            plex = PlexServer(baseurl, token)
+            movies = plex.library.section('Movies')
+            series = plex.library.section('Series')
+            allItems = [*movies.search(), *series.search()]
+
+            bigString += "```\n"
+            bigString += f"FULCRUM Automated Changelog // {logDate.strftime('%Y/%m/%d')} - {datetime.datetime.now().strftime('%Y/%m/%d')}\n\n"
+            bigString += "Movies\n------\n"
+            for m in movies.search():
+                if (m.addedAt > logDate):
+                    if (m.editionTitle == None):
+                        bigString += f" + {m.title} ({m.year})\n"
+                    else:
+                        bigString += f" + {m.title} ({m.year}) - {m.editionTitle}\n"
+
+            bigString += "\nShows\n-----\n"
+            for s in series.search():
+                if (s.addedAt > logDate):
+                    showEpisodes = {}
+                    for e in series.get(s.title).episodes():
+                        for part in e.iterParts():
+                            regexPattern = r"[sS](\d{1,4})[eE](\d{1,4})"
+                            epTitle = re.search(regexPattern, part.file, re.IGNORECASE)
+                            if epTitle:
+                                season = epTitle.group(1)
+                                episode = epTitle.group(2)
+                                
+                                if season not in showEpisodes:
+                                    showEpisodes[season] = []
+                                
+                                if int(episode) not in showEpisodes[season]:
+                                    showEpisodes[season].append(int(episode))
+                                    
+                    bigString += f" o {s.title} ({s.year})\n"
+                    for season in showEpisodes:
+                        bigString += f"    + S{season}E{format_numbers(showEpisodes[season])}\n"
+            bigString += "```"
+
+            dateFile = open('plexDate.txt', 'w')
+            dateFile.write(nowDate)
+            dateFile.close()
+
+            channel = bot.get_channel(1223505800706789378)
+            await channel.send(bigString)
+
+
+    @plex_log.before_loop
+    async def before_plex_log(self) -> None:
+        """
+        Before starting the status changing task, we make sure the bot is ready
+        """
+        await self.wait_until_ready()
+
+    @tasks.loop(minutes=1.0)
     async def status_task(self) -> None:
         """
         Setup the game status task of the bot.
         """
-        statuses = ["with you!", "with Krypton!", "with humans!"]
+        statuses = ["watching Plex", "gaming", "shmillin"]
         await self.change_presence(activity=discord.Game(random.choice(statuses)))
 
     @status_task.before_loop
@@ -196,6 +238,7 @@ class DiscordBot(commands.Bot):
         await self.init_db()
         await self.load_cogs()
         self.status_task.start()
+        self.plex_log.start()
         self.database = DatabaseManager(
             connection=await aiosqlite.connect(
                 f"{os.path.realpath(os.path.dirname(__file__))}/database/database.db"
