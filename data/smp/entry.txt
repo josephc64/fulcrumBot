@@ -1,0 +1,22 @@
+Welcome to Season 1 of Coyote SMP, lasting from 6.1.2024 to 9.11.2024!
+
+Coyote SMP is a Forge server running Minecraft version 1.20.1, and its
+mods seek to expand the Vanilla Minecraft experience, adding many new
+blocks, items, dimensions, bosses, game mechanics, and crafting recipes.
+
+This modpack completely overhauls Minecraft's difficulty curve, throwing
+greater challenges at the player, and many more opportunities to upgrade
+gear and character strength. There is a greater focus in this modpack on
+discovery and combat than grinding, and a number of item grinds have been
+made much quicker.
+
+Adventuring and farming have both been greatly enhanced, with many
+in-game structures remodeled, plenty of new treasures and artifacts to
+be found, and a great deal of new crops which are integral to player
+growth.
+
+Social features have also been greatly enhanced, with the introduction
+of a mail system, musical instruments, new chat formatting, in-game proximity
+voice chat, and fun new items.
+
+For more information on Coyote SMP's mods, click the GUIDE button.
